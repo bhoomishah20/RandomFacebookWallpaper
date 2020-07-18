@@ -9,28 +9,20 @@ import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.Context
 import java.util.*
-import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.util.Base64
 import android.util.Log
-import com.facebook.CallbackManager
+import com.facebook.*
 import kotlinx.android.synthetic.main.activity_main.*
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
-import com.facebook.FacebookException
 import com.facebook.login.LoginResult
-import com.facebook.FacebookCallback
-import com.facebook.AccessToken
-
-
-
+import org.json.JSONException
 
 
 class MainActivity : AppCompatActivity() {
 
-    var wallpaperArray =
-        arrayOf(
-            R.drawable.ic_wallpaper_4,R.drawable.ic_wall1,R.drawable.ic_wall2,R.drawable.ic_wall3)
+    var wallpaperArray = arrayOf(R.drawable.ic_wallpaper_4,R.drawable.ic_wall1,R.drawable.ic_wall2,R.drawable.ic_wall3)
 
     lateinit var callbackManager:CallbackManager
     var email=""
@@ -69,7 +61,7 @@ class MainActivity : AppCompatActivity() {
         )
         printHashKey(this)
         callbackManager = CallbackManager.Factory.create()
-        login_button.setPermissions(Arrays.asList(email))
+        login_button.setPermissions(Arrays.asList("public_profile", "user_friends", "email"))
         // Callback registration
         login_button.registerCallback(callbackManager, object : FacebookCallback<LoginResult> {
             override fun onSuccess(loginResult: LoginResult) {
@@ -77,6 +69,7 @@ class MainActivity : AppCompatActivity() {
 
                 val accessToken = AccessToken.getCurrentAccessToken()
                 val isLoggedIn = accessToken != null && !accessToken.isExpired
+                getFriendsList()
 
             }
 
@@ -120,5 +113,39 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         callbackManager.onActivityResult(requestCode, resultCode, data);
         super.onActivityResult(requestCode, resultCode, data)
+    }
+    private fun getFriendsList(): List<String> {
+        val friendslist = ArrayList<String>()
+        GraphRequest(AccessToken.getCurrentAccessToken(), "/me/friends", null, HttpMethod.GET,
+            GraphRequest.Callback { response ->
+                /* handle the result */
+                Log.e("Friends List: 1", response.toString())
+                try {
+                    val responseObject = response.jsonObject
+                    val dataArray = responseObject.getJSONArray("data")
+
+                    for (i in 0 until dataArray.length()) {
+                        val dataObject = dataArray.getJSONObject(i)
+                        val fbId = dataObject.getString("id")
+                        val fbName = dataObject.getString("name")
+                        Log.e("FbId", fbId)
+                        Log.e("FbName", fbName)
+                        friendslist.add(fbId)
+                    }
+                    Log.e("fbfriendList", friendslist.toString())
+                    var friends = ""
+                    if (friendslist != null && friendslist.size > 0) {
+                        friends = friendslist.toString()
+                        if (friends.contains("[")) {
+                            friends = friends.substring(1, friends.length-1)
+                        }
+                    }
+                } catch (e: JSONException) {
+                    e.printStackTrace()
+                } finally {
+                    //                    hideLoadingProgress();
+                }
+            }).executeAsync()
+        return friendslist
     }
 }
